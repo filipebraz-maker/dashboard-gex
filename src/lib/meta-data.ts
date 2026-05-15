@@ -51,6 +51,10 @@ export function filtrarPorCategoria(linhas: AnuncioDia[], categoria: CategoriaCa
   return linhas.filter((l) => classificarCampanha(l.campanha) === categoria);
 }
 
+export function filtrarMetaPorRange(linhas: AnuncioDia[], r: { inicio: Date; fim: Date }): AnuncioDia[] {
+  return linhas.filter((l) => l.dia >= r.inicio && l.dia <= r.fim);
+}
+
 export function contarPorCategoria(linhas: AnuncioDia[]): Record<CategoriaCampanha, { linhas: number; investimento: number; campanhas: number }> {
   const out: Record<CategoriaCampanha, { linhas: number; investimento: number; campanhas: number }> = {
     captacao: { linhas: 0, investimento: 0, campanhas: 0 },

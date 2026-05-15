@@ -7,30 +7,29 @@ import { MesSelector } from "@/components/MesSelector";
 import {
   carregarVendas,
   carregarLeadsDiarios,
-  filtrarPorMes,
-  filtrarLeadsPorMes,
   agruparPorChave,
   leadsPorDia,
   origemLeadsAgregado,
-  slugParaMes,
-  MESES_VENDAS,
+  getPeriodoFromQuery,
+  filtrarVendasPorRange,
+  filtrarLeadsPorRange,
+  PERIODO_OPTIONS,
 } from "@/lib/gex-data";
 import { formatNumber, formatPercent } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 60;
 
 interface PageProps {
-  searchParams: Promise<{ mes?: string }>;
+  searchParams: Promise<{ mes?: string; de?: string; ate?: string }>;
 }
 
 export default async function LeadsPage({ searchParams }: PageProps) {
-  const { mes: mesParam } = await searchParams;
-  const mes = slugParaMes(mesParam);
+  const { mes, de, ate } = await searchParams;
+  const periodo = getPeriodoFromQuery(mes, de, ate);
 
   const [vendas, leads] = await Promise.all([carregarVendas(), carregarLeadsDiarios()]);
-  const vendasF = filtrarPorMes(vendas, mes).filter((v) => !v.cancelada);
-  const leadsF = filtrarLeadsPorMes(leads, mes);
+  const vendasF = filtrarVendasPorRange(vendas, periodo).filter((v) => !v.cancelada);
+  const leadsF = filtrarLeadsPorRange(leads, periodo);
 
   const totalLeads = leadsF.reduce((s, l) => s + l.totalLeads, 0);
   const totalVendasRelatorio = leadsF.reduce((s, l) => s + l.vendasContagem, 0);
@@ -55,7 +54,7 @@ export default async function LeadsPage({ searchParams }: PageProps) {
             Captação e atribuição por canal · RELATÓRIO DIÁRIO
           </p>
         </div>
-        <MesSelector mes={mes} meses={MESES_VENDAS.map((m) => m.rotulo)} />
+        <MesSelector options={PERIODO_OPTIONS} currentKey={periodo.key} currentLabel={periodo.label} />
       </header>
 
       <div className="reveal grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5" style={{ animationDelay: "0.05s" }}>

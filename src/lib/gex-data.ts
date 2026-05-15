@@ -76,13 +76,80 @@ export function resumir(vendas: Venda[], leads: LeadDiario[]): Resumo {
   };
 }
 
+// ===== Períodos / Filtros por range =====
+
+export interface PeriodoRange {
+  inicio: Date;
+  fim: Date;
+  key: string;
+  label: string;
+}
+
+interface MesEntry {
+  key: string;
+  mes: string; // formato interno "JAN/26"
+  label: string; // label exibido
+  monthIdx: number; // 0..11
+  ano: number;
+}
+
+const MESES_KEYS: MesEntry[] = [
+  { key: "jan26", mes: "JAN/26", label: "Janeiro/26", monthIdx: 0, ano: 2026 },
+  { key: "fev26", mes: "FEV/26", label: "Fevereiro/26", monthIdx: 1, ano: 2026 },
+  { key: "mar26", mes: "MAR/26", label: "Março/26", monthIdx: 2, ano: 2026 },
+  { key: "abr26", mes: "ABR/26", label: "Abril/26", monthIdx: 3, ano: 2026 },
+  { key: "maio26", mes: "MAIO/26", label: "Maio/26", monthIdx: 4, ano: 2026 },
+];
+
+export const PERIODO_OPTIONS: { key: string; label: string }[] = [
+  { key: "todos", label: "Todos os meses" },
+  ...MESES_KEYS.map((m) => ({ key: m.key, label: m.label })),
+];
+
+function formatBR(yyyymmdd: string): string {
+  const [y, m, d] = yyyymmdd.split("-");
+  return `${d}/${m}/${y.slice(2)}`;
+}
+
+export function getPeriodoFromQuery(mes?: string, de?: string, ate?: string): PeriodoRange {
+  // Custom range
+  if (mes === "custom" && de && ate) {
+    const [yi, mi, di] = de.split("-").map(Number);
+    const [yf, mf, df] = ate.split("-").map(Number);
+    return {
+      inicio: new Date(yi, mi - 1, di, 0, 0, 0),
+      fim: new Date(yf, mf - 1, df, 23, 59, 59),
+      key: "custom",
+      label: `${formatBR(de)} → ${formatBR(ate)}`,
+    };
+  }
+  // Mês específico
+  const entry = MESES_KEYS.find((m) => m.key === mes);
+  if (entry) {
+    const inicio = new Date(entry.ano, entry.monthIdx, 1, 0, 0, 0);
+    const fim = new Date(entry.ano, entry.monthIdx + 1, 0, 23, 59, 59);
+    return { inicio, fim, key: entry.key, label: entry.label };
+  }
+  // Default: todos os meses cobertos
+  const ultimo = MESES_KEYS[MESES_KEYS.length - 1];
+  const inicio = new Date(MESES_KEYS[0].ano, MESES_KEYS[0].monthIdx, 1, 0, 0, 0);
+  const fim = new Date(ultimo.ano, ultimo.monthIdx + 1, 0, 23, 59, 59);
+  return { inicio, fim, key: "todos", label: "Todos os meses" };
+}
+
+export function filtrarVendasPorRange(vendas: Venda[], r: PeriodoRange): Venda[] {
+  return vendas.filter((v) => v.dataVenda >= r.inicio && v.dataVenda <= r.fim);
+}
+
+export function filtrarLeadsPorRange(leads: LeadDiario[], r: PeriodoRange): LeadDiario[] {
+  return leads.filter((l) => l.data >= r.inicio && l.data <= r.fim);
+}
+
+// Legacy compat (alguns trechos antigos ainda chamam)
 export function slugParaMes(slug: string | null | undefined): string {
-  if (!slug) return "TODOS";
-  if (slug === "TODOS") return "TODOS";
-  const decoded = decodeURIComponent(slug);
-  if (decoded.includes("/")) return decoded; // já tem barra
-  const m = decoded.match(/^([A-Z]+)(\d{2})$/i);
-  return m ? `${m[1].toUpperCase()}/${m[2]}` : decoded.toUpperCase();
+  if (!slug || slug === "todos" || slug === "TODOS") return "TODOS";
+  const entry = MESES_KEYS.find((m) => m.key === slug || m.mes === slug);
+  return entry ? entry.mes : "TODOS";
 }
 
 export function filtrarPorMes(vendas: Venda[], mes: string | null): Venda[] {
@@ -94,7 +161,7 @@ export function filtrarLeadsPorMes(leads: LeadDiario[], mes: string | null): Lea
   if (!mes || mes === "TODOS") return leads;
   const idx = MESES_VENDAS.findIndex((m) => m.rotulo === mes);
   if (idx === -1) return leads;
-  const mesNum = idx; // 0=jan, 1=fev, ...
+  const mesNum = idx;
   return leads.filter((l) => l.data.getMonth() === mesNum && l.data.getFullYear() === 2026);
 }
 

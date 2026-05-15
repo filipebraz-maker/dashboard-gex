@@ -10,39 +10,29 @@ import { MesSelector } from "@/components/MesSelector";
 import {
   carregarVendas,
   carregarLeadsDiarios,
-  filtrarPorMes,
-  filtrarLeadsPorMes,
   resumir,
   vendasPorDia,
   leadsPorDia,
   faturamentoPorMes,
   origemLeadsAgregado,
-  slugParaMes,
-  MESES_VENDAS,
+  getPeriodoFromQuery,
+  filtrarVendasPorRange,
+  filtrarLeadsPorRange,
+  PERIODO_OPTIONS,
 } from "@/lib/gex-data";
-import { carregarMetaAds, resumirMeta, agruparPorAnuncio } from "@/lib/meta-data";
+import { carregarMetaAds, resumirMeta, agruparPorAnuncio, filtrarMetaPorRange } from "@/lib/meta-data";
 import type { AnuncioDia } from "@/lib/meta-types";
 import { formatBRL, formatBRLDetalhado, formatNumber, formatPercent } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 60;
 
 interface PageProps {
-  searchParams: Promise<{ mes?: string }>;
-}
-
-const MES_INDEX: Record<string, number> = { "JAN/26": 0, "FEV/26": 1, "MAR/26": 2, "ABR/26": 3, "MAIO/26": 4 };
-
-function filtrarMetaPorMes(linhas: AnuncioDia[], mes: string): AnuncioDia[] {
-  if (mes === "TODOS") return linhas;
-  const idx = MES_INDEX[mes];
-  if (idx === undefined) return linhas;
-  return linhas.filter((l) => l.dia.getMonth() === idx && l.dia.getFullYear() === 2026);
+  searchParams: Promise<{ mes?: string; de?: string; ate?: string }>;
 }
 
 export default async function Home({ searchParams }: PageProps) {
-  const { mes: mesParam } = await searchParams;
-  const mes = slugParaMes(mesParam);
+  const { mes, de, ate } = await searchParams;
+  const periodo = getPeriodoFromQuery(mes, de, ate);
 
   let meta: AnuncioDia[] = [];
   const [vendas, leads] = await Promise.all([carregarVendas(), carregarLeadsDiarios()]);
@@ -52,9 +42,9 @@ export default async function Home({ searchParams }: PageProps) {
     meta = [];
   }
 
-  const vendasF = filtrarPorMes(vendas, mes);
-  const leadsF = filtrarLeadsPorMes(leads, mes);
-  const metaF = filtrarMetaPorMes(meta, mes);
+  const vendasF = filtrarVendasPorRange(vendas, periodo);
+  const leadsF = filtrarLeadsPorRange(leads, periodo);
+  const metaF = filtrarMetaPorRange(meta, periodo);
 
   const r = resumir(vendasF, leadsF);
   const rMeta = resumirMeta(metaF);
@@ -74,10 +64,10 @@ export default async function Home({ searchParams }: PageProps) {
         <div>
           <h1 className="text-xl md:text-2xl font-semibold leading-tight">Visão Geral</h1>
           <p className="text-xs md:text-sm mt-1" style={{ color: "var(--text-dim)" }}>
-            {mes === "TODOS" ? "Todos os meses · 2026" : mes} · {r.qtdVendasLiquidas} vendas · {formatNumber(r.totalLeads)} leads
+            {periodo.label} · {r.qtdVendasLiquidas} vendas · {formatNumber(r.totalLeads)} leads
           </p>
         </div>
-        <MesSelector mes={mes} meses={MESES_VENDAS.map((m) => m.rotulo)} />
+        <MesSelector options={PERIODO_OPTIONS} currentKey={periodo.key} currentLabel={periodo.label} />
       </header>
 
       <div className="reveal grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5" style={{ animationDelay: "0.05s" }}>
@@ -124,7 +114,7 @@ export default async function Home({ searchParams }: PageProps) {
         </div>
 
         <div className="lg:col-span-7">
-          <SectionCard title="Performance do Período" subtitle={mes === "TODOS" ? "Jan a Maio de 2026" : mes}>
+          <SectionCard title="Performance do Período" subtitle={periodo.label}>
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-lg p-3" style={{ background: "var(--bg-elev)", border: "1px solid var(--border)" }}>
@@ -288,7 +278,7 @@ export default async function Home({ searchParams }: PageProps) {
       </div>
 
       <div className="reveal flex items-center justify-between text-xs pt-4 mt-4 border-t" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
-        <span>Gex Dashboard · {mes === "TODOS" ? "Todos os meses" : mes}</span>
+        <span>Gex Dashboard · {periodo.label}</span>
         <span className="flex items-center gap-1.5">
           <TrendingUp className="w-3 h-3" />
           Atualizado a cada 60s

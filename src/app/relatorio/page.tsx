@@ -10,7 +10,16 @@ export const dynamic = "force-dynamic";
 
 export default async function RelatorioPage() {
   const leads = await carregarLeadsDiarios();
-  const meses = quinzenarRelatorio(leads);
+  const mesesAsc = quinzenarRelatorio(leads);
+  // Mais recente primeiro: dentro de cada mês, 2ª quinzena antes da 1ª;
+  // dentro de cada quinzena, dias em ordem decrescente.
+  const meses = [...mesesAsc].reverse().map((m) => ({
+    ...m,
+    quinzenas: [
+      { ...m.quinzenas[1], dias: [...m.quinzenas[1].dias].reverse() },
+      { ...m.quinzenas[0], dias: [...m.quinzenas[0].dias].reverse() },
+    ] as typeof m.quinzenas,
+  }));
 
   const totalLeadsGeral = meses.reduce((s, m) => s + m.totalMes.leads, 0);
   const totalVendasGeral = meses.reduce((s, m) => s + m.totalMes.vendas, 0);

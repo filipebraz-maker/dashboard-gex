@@ -10,6 +10,7 @@ import {
   MESES_VENDAS,
 } from "@/lib/gex-data";
 import { carregarMetaAds, resumirMeta } from "@/lib/meta-data";
+import type { AnuncioDia } from "@/lib/meta-types";
 import { formatBRL, formatNumber, formatPercent } from "@/lib/utils";
 
 export const revalidate = 60;
@@ -31,11 +32,13 @@ export default async function Home({ searchParams }: PageProps) {
   const { mes: mesParam } = await searchParams;
   const mes = mesParam ?? "TODOS";
 
-  const [vendas, leads, meta] = await Promise.all([
-    carregarVendas(),
-    carregarLeadsDiarios(),
-    carregarMetaAds(),
-  ]);
+  let meta: AnuncioDia[] = [];
+  const [vendas, leads] = await Promise.all([carregarVendas(), carregarLeadsDiarios()]);
+  try {
+    meta = await carregarMetaAds();
+  } catch {
+    meta = [];
+  }
   const vendasFiltradas = filtrarPorMes(vendas, mes);
   const leadsFiltrados = filtrarLeadsPorMes(leads, mes);
   const metaFiltrada = filtrarMetaPorMes(meta, mes);

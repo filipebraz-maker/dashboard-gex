@@ -1,4 +1,4 @@
-import { Sparkles, DollarSign, TrendingUp, Users } from "lucide-react";
+import { Sparkles, DollarSign, TrendingUp, Users, AlertCircle } from "lucide-react";
 import { KPICard } from "@/components/KPICard";
 import {
   carregarPostsAtracao,
@@ -6,15 +6,42 @@ import {
   carregarCrescimentoWagner,
 } from "@/lib/atracao-data";
 import { formatBRL, formatNumber } from "@/lib/utils";
+import type { PostAtracao, CrescimentoDia } from "@/lib/atracao-types";
 
+export const dynamic = "force-dynamic";
 export const revalidate = 60;
 
 export default async function AtracaoPage() {
-  const [posts, gex, wagner] = await Promise.all([
-    carregarPostsAtracao(),
-    carregarCrescimentoGex(),
-    carregarCrescimentoWagner(),
-  ]);
+  let posts: PostAtracao[] = [];
+  let gex: CrescimentoDia[] = [];
+  let wagner: CrescimentoDia[] = [];
+  let erro: string | null = null;
+  try {
+    [posts, gex, wagner] = await Promise.all([
+      carregarPostsAtracao(),
+      carregarCrescimentoGex(),
+      carregarCrescimentoWagner(),
+    ]);
+  } catch (e) {
+    erro = e instanceof Error ? e.message : String(e);
+  }
+
+  if (erro) {
+    return (
+      <div className="px-4 md:px-6 lg:px-8 py-5 md:py-6 max-w-[1200px] mx-auto pb-24">
+        <h1 className="text-xl md:text-2xl font-semibold leading-tight mb-2">Atração</h1>
+        <section className="card p-5 md:p-6">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "var(--amber)" }} />
+            <div>
+              <div className="text-sm font-semibold">Planilha de Atração indisponível</div>
+              <p className="text-xs mt-1" style={{ color: "var(--text-dim)" }}>{erro}</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   const postsValidos = posts.filter((p) => p.valorGasto > 0);
   const investimentoTotal = postsValidos.reduce((s, p) => s + p.valorGasto, 0);

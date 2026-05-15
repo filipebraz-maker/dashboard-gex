@@ -1,12 +1,38 @@
-import { DollarSign, Eye, MousePointerClick, MessageCircle, ShoppingCart, Percent } from "lucide-react";
+import { DollarSign, Eye, MousePointerClick, MessageCircle, ShoppingCart, Percent, AlertCircle } from "lucide-react";
 import { KPICard } from "@/components/KPICard";
 import { carregarMetaAds, resumirMeta, agruparPorAnuncio, agruparPorCampanha } from "@/lib/meta-data";
 import { formatBRL, formatNumber, formatPercent } from "@/lib/utils";
+import type { AnuncioDia } from "@/lib/meta-types";
 
+export const dynamic = "force-dynamic";
 export const revalidate = 60;
 
 export default async function TrafegoPage() {
-  const linhas = await carregarMetaAds();
+  let linhas: AnuncioDia[] = [];
+  let erro: string | null = null;
+  try {
+    linhas = await carregarMetaAds();
+  } catch (e) {
+    erro = e instanceof Error ? e.message : String(e);
+  }
+
+  if (erro) {
+    return (
+      <div className="px-4 md:px-6 lg:px-8 py-5 md:py-6 max-w-[1200px] mx-auto pb-24">
+        <h1 className="text-xl md:text-2xl font-semibold leading-tight mb-2">Tráfego</h1>
+        <section className="card p-5 md:p-6">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "var(--amber)" }} />
+            <div>
+              <div className="text-sm font-semibold">Meta Ads indisponível</div>
+              <p className="text-xs mt-1" style={{ color: "var(--text-dim)" }}>{erro}</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   const r = resumirMeta(linhas);
   const porAnuncio = agruparPorAnuncio(linhas);
   const porCampanha = agruparPorCampanha(linhas);

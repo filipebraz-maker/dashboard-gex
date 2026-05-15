@@ -3,29 +3,42 @@ import { KPICard } from "@/components/KPICard";
 import { SectionCard } from "@/components/SectionCard";
 import { BarChartWrapper } from "@/components/BarChartWrapper";
 import { HeatBar } from "@/components/HeatBar";
-import { Pill } from "@/components/Pill";
 import { MesSelector } from "@/components/MesSelector";
+import { VendasTable, type VendaRow } from "@/components/VendasTable";
 import {
   carregarVendas,
   filtrarPorMes,
   agruparPorChave,
   faturamentoPorMes,
+  slugParaMes,
   MESES_VENDAS,
 } from "@/lib/gex-data";
 import { formatBRL, formatNumber, formatPercent } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 60;
 
 interface PageProps {
   searchParams: Promise<{ mes?: string }>;
 }
 
+function normalizarAluno(s: string): string {
+  return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
+}
+
 export default async function VendasPage({ searchParams }: PageProps) {
   const { mes: mesParam } = await searchParams;
-  const mes = mesParam ?? "TODOS";
+  const mes = slugParaMes(mesParam);
 
   const vendas = await carregarVendas();
+
+  // Conta compras por aluno em todo o histórico (não só no mês filtrado)
+  const comprasPorAluno = new Map<string, number>();
+  for (const v of vendas) {
+    if (v.cancelada) continue;
+    const k = normalizarAluno(v.aluno);
+    comprasPorAluno.set(k, (comprasPorAluno.get(k) || 0) + 1);
+  }
+
   const vendasMes = filtrarPorMes(vendas, mes);
   const ativas = vendasMes.filter((v) => !v.cancelada);
   const canceladas = vendasMes.filter((v) => v.cancelada);
@@ -40,7 +53,30 @@ export default async function VendasPage({ searchParams }: PageProps) {
   const porTipo = agruparPorChave(vendasMes, (v) => v.cancelada ? "CANCELADA" : v.tipos[0] || "(sem tipo)");
   const chartMeses = faturamentoPorMes(vendas);
 
-  const ordenadas = [...vendasMes].sort((a, b) => b.dataVenda.getTime() - a.dataVenda.getTime());
+  const linhas: VendaRow[] = vendasMes.map((v) => {
+    const qtd = comprasPorAluno.get(normalizarAluno(v.aluno)) || 0;
+    return {
+      dataVendaISO: v.dataVenda.toISOString().slice(0, 10),
+      dataVendaBR: v.dataVenda.toLocaleDateString("pt-BR"),
+      aluno: v.aluno,
+      produtoBase: v.produtoBase,
+      area: v.area || "",
+      tipos: v.tipos,
+      origem: v.origem,
+      valor: v.valor,
+      tempo: v.tempo,
+      cancelada: v.cancelada,
+      recorrente: qtd > 1,
+      qtdComprasAluno: qtd,
+    };
+  });
+
+  const alunosRecorrentes = new Set(
+    Array.from(comprasPorAluno.entries())
+      .filter(([, n]) => n > 1)
+      .map(([k]) => k)
+  );
+  const recorrentesNoMes = linhas.filter((l) => l.recorrente && !l.cancelada).length;
 
   return (
     <div className="px-4 md:px-6 lg:px-8 py-5 md:py-6 max-w-[1600px] mx-auto pb-24">
@@ -56,8 +92,8 @@ export default async function VendasPage({ searchParams }: PageProps) {
 
       <div className="reveal grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5" style={{ animationDelay: "0.05s" }}>
         <KPICard icon={DollarSign} label="Faturamento Líquido" value={formatBRL(faturamentoLiquido)} delta={`Bruto ${formatBRL(faturamentoBruto)}`} variant="purple" />
-        <KPICard icon={ShoppingCart} label="Vendas Líquidas" value={formatNumber(ativas.length)} delta={`${vendasMes.length} brutas`} variant="cyan" />
-        <KPICard icon={Target} label="Ticket Médio" value={formatBRL(ticket)} variant="green" />
+        <KPICard icon={ShoppingCart} label="Vendas Líquidas" value={formatNumber(ativas.length)} delta={`${vendasMes.length} brutas · ${recorrentesNoMes} recorrentes`} variant="cyan" />
+        <KPICard icon={Target} label="Ticket Médio" value={formatBRL(ticket)} delta={`${alunosRecorrentes.size} alunos com 2+ compras`} variant="green" />
         <KPICard icon={TrendingDown} label="Cancelamentos" value={formatBRL(valorCancelado)} delta={`${canceladas.length} venda(s)`} deltaColor="var(--red)" variant="orange" />
       </div>
 
@@ -83,49 +119,11 @@ export default async function VendasPage({ searchParams }: PageProps) {
       </div>
 
       <div className="reveal" style={{ animationDelay: "0.2s" }}>
-        <SectionCard title="Todas as Vendas" subtitle={`${vendasMes.length} venda(s) · ordenado por data`}>
-          <div className="overflow-x-auto -mx-4 md:-mx-5">
-            <div className="min-w-[900px] px-4 md:px-5">
-              <table className="dt">
-                <thead>
-                  <tr>
-                    <th>Data</th>
-                    <th>Aluno</th>
-                    <th>Produto</th>
-                    <th>Área</th>
-                    <th>Tipo</th>
-                    <th>Origem</th>
-                    <th className="text-right">Valor</th>
-                    <th className="text-right">Tempo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ordenadas.map((v, i) => (
-                    <tr key={`${v.aluno}-${v.dataVenda.toISOString()}-${i}`}>
-                      <td className="mono">{v.dataVenda.toLocaleDateString("pt-BR")}</td>
-                      <td>{v.aluno}</td>
-                      <td className="mono" style={{ color: "var(--text-dim)" }}>{v.produtoBase}</td>
-                      <td className="mono" style={{ color: "var(--text-dim)" }}>{v.area || "—"}</td>
-                      <td>
-                        {v.cancelada ? (
-                          <Pill tone="red">Cancelada</Pill>
-                        ) : (
-                          <span className="mono" style={{ color: "var(--text-dim)" }}>{v.tipos[0] || "—"}</span>
-                        )}
-                      </td>
-                      <td className="mono" style={{ color: "var(--text-dim)" }}>{v.origem || "—"}</td>
-                      <td className="num" style={{ color: v.cancelada ? "var(--text-muted)" : "var(--text)" }}>
-                        {formatBRL(v.valor)}
-                      </td>
-                      <td className="num" style={{ color: "var(--text-dim)" }}>
-                        {v.tempo !== null ? `${v.tempo}d` : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+        <SectionCard
+          title="Todas as Vendas"
+          subtitle={`${linhas.length} venda(s) · clique nas colunas pra ordenar · busque por nome`}
+        >
+          <VendasTable vendas={linhas} />
         </SectionCard>
       </div>
     </div>

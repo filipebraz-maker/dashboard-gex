@@ -12,6 +12,7 @@ import {
   agruparPorChave,
   leadsPorDia,
   origemLeadsAgregado,
+  slugParaMes,
   MESES_VENDAS,
 } from "@/lib/gex-data";
 import { formatNumber, formatPercent } from "@/lib/utils";
@@ -25,7 +26,7 @@ interface PageProps {
 
 export default async function LeadsPage({ searchParams }: PageProps) {
   const { mes: mesParam } = await searchParams;
-  const mes = mesParam ?? "TODOS";
+  const mes = slugParaMes(mesParam);
 
   const [vendas, leads] = await Promise.all([carregarVendas(), carregarLeadsDiarios()]);
   const vendasF = filtrarPorMes(vendas, mes).filter((v) => !v.cancelada);

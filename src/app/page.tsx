@@ -17,6 +17,7 @@ import {
   leadsPorDia,
   faturamentoPorMes,
   origemLeadsAgregado,
+  slugParaMes,
   MESES_VENDAS,
 } from "@/lib/gex-data";
 import { carregarMetaAds, resumirMeta, agruparPorAnuncio } from "@/lib/meta-data";
@@ -41,7 +42,7 @@ function filtrarMetaPorMes(linhas: AnuncioDia[], mes: string): AnuncioDia[] {
 
 export default async function Home({ searchParams }: PageProps) {
   const { mes: mesParam } = await searchParams;
-  const mes = mesParam ?? "TODOS";
+  const mes = slugParaMes(mesParam);
 
   let meta: AnuncioDia[] = [];
   const [vendas, leads] = await Promise.all([carregarVendas(), carregarLeadsDiarios()]);

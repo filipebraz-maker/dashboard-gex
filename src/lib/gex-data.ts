@@ -76,6 +76,15 @@ export function resumir(vendas: Venda[], leads: LeadDiario[]): Resumo {
   };
 }
 
+export function slugParaMes(slug: string | null | undefined): string {
+  if (!slug) return "TODOS";
+  if (slug === "TODOS") return "TODOS";
+  const decoded = decodeURIComponent(slug);
+  if (decoded.includes("/")) return decoded; // já tem barra
+  const m = decoded.match(/^([A-Z]+)(\d{2})$/i);
+  return m ? `${m[1].toUpperCase()}/${m[2]}` : decoded.toUpperCase();
+}
+
 export function filtrarPorMes(vendas: Venda[], mes: string | null): Venda[] {
   if (!mes || mes === "TODOS") return vendas;
   return vendas.filter((v) => v.mes === mes);
@@ -129,6 +138,95 @@ export function faturamentoPorMes(vendas: Venda[]): Array<{ mes: string; faturam
     atual.qtd++;
   }
   return ordem.map((mes) => ({ mes, ...(mapa.get(mes) || { faturamento: 0, qtd: 0 }) }));
+}
+
+export interface ResumoQuinzena {
+  rotulo: string;
+  diaInicio: number;
+  diaFim: number;
+  dias: LeadDiario[];
+  totalPorOrigem: Record<string, number>;
+  totalLeads: number;
+  totalVendas: number;
+  totalFollowUp: number;
+}
+
+export interface RelatorioMes {
+  mesNum: number;
+  rotulo: string;
+  origens: string[];
+  quinzenas: [ResumoQuinzena, ResumoQuinzena];
+  totalMes: { leads: number; vendas: number; followUp: number; porOrigem: Record<string, number> };
+}
+
+const NOMES_MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+
+function origensDoMes(dias: LeadDiario[]): string[] {
+  const set = new Set<string>();
+  for (const d of dias) for (const o of Object.keys(d.porOrigem)) set.add(o);
+  const prioridade = ["BIO", "WAGNER", "DIRECT", "ADS IN", "ADS AV", "YOUTUBE", "GRUPO", "SITE", "GEX ADM", "ADEMIR", "JANAINA", "IND. AMIGO"];
+  return [...set].sort((a, b) => {
+    const ia = prioridade.indexOf(a);
+    const ib = prioridade.indexOf(b);
+    if (ia === -1 && ib === -1) return a.localeCompare(b);
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+}
+
+function totalizaQuinzena(dias: LeadDiario[]): Omit<ResumoQuinzena, "rotulo" | "diaInicio" | "diaFim" | "dias"> {
+  const totalPorOrigem: Record<string, number> = {};
+  let totalLeads = 0;
+  let totalVendas = 0;
+  let totalFollowUp = 0;
+  for (const d of dias) {
+    for (const [o, n] of Object.entries(d.porOrigem)) {
+      totalPorOrigem[o] = (totalPorOrigem[o] || 0) + n;
+    }
+    totalLeads += d.totalLeads;
+    totalVendas += d.vendasContagem;
+    totalFollowUp += d.followUpCount;
+  }
+  return { totalPorOrigem, totalLeads, totalVendas, totalFollowUp };
+}
+
+export function quinzenarRelatorio(leads: LeadDiario[]): RelatorioMes[] {
+  const porMes = new Map<number, LeadDiario[]>();
+  for (const l of leads) {
+    const m = l.data.getMonth();
+    const arr = porMes.get(m) || [];
+    arr.push(l);
+    porMes.set(m, arr);
+  }
+  const meses: RelatorioMes[] = [];
+  for (const [mesNum, dias] of [...porMes.entries()].sort((a, b) => a[0] - b[0])) {
+    const ordenados = [...dias].sort((a, b) => a.data.getTime() - b.data.getTime());
+    const primeira = ordenados.filter((d) => d.data.getDate() <= 15);
+    const segunda = ordenados.filter((d) => d.data.getDate() > 15);
+    const q1: ResumoQuinzena = { rotulo: "1ª Quinzena", diaInicio: 1, diaFim: 15, dias: primeira, ...totalizaQuinzena(primeira) };
+    const q2: ResumoQuinzena = {
+      rotulo: "2ª Quinzena",
+      diaInicio: 16,
+      diaFim: segunda.length > 0 ? segunda[segunda.length - 1].data.getDate() : 31,
+      dias: segunda,
+      ...totalizaQuinzena(segunda),
+    };
+    const totalMesAgg = totalizaQuinzena(ordenados);
+    meses.push({
+      mesNum,
+      rotulo: NOMES_MESES[mesNum],
+      origens: origensDoMes(ordenados),
+      quinzenas: [q1, q2],
+      totalMes: {
+        leads: totalMesAgg.totalLeads,
+        vendas: totalMesAgg.totalVendas,
+        followUp: totalMesAgg.totalFollowUp,
+        porOrigem: totalMesAgg.totalPorOrigem,
+      },
+    });
+  }
+  return meses;
 }
 
 export function origemLeadsAgregado(leads: LeadDiario[]): Array<{ origem: string; leads: number; percentual: number }> {

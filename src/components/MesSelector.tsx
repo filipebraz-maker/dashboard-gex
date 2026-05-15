@@ -10,6 +10,17 @@ interface Props {
   meses: string[];
 }
 
+function paraUrl(mes: string): string {
+  return mes.replace(/\//g, "");
+}
+function deUrl(slug: string | null | undefined): string {
+  if (!slug) return "TODOS";
+  if (slug === "TODOS") return "TODOS";
+  // "JAN26" → "JAN/26", "MAIO26" → "MAIO/26"
+  const m = slug.match(/^([A-Z]+)(\d{2})$/);
+  return m ? `${m[1]}/${m[2]}` : slug;
+}
+
 export function MesSelector({ mes, meses }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -30,7 +41,7 @@ export function MesSelector({ mes, meses }: Props) {
     setOpen(false);
     const params = new URLSearchParams(searchParams);
     if (novoMes === "TODOS") params.delete("mes");
-    else params.set("mes", novoMes);
+    else params.set("mes", paraUrl(novoMes));
     const q = params.toString();
     startTransition(() => router.push(q ? `${pathname}?${q}` : pathname));
   }

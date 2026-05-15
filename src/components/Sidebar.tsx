@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, ShoppingCart, Megaphone, Sparkles, CalendarDays, Menu, X, Zap } from "lucide-react";
+import { LayoutDashboard, Users, ShoppingCart, Megaphone, CalendarDays, Menu, X, Zap } from "lucide-react";
 import clsx from "clsx";
 import { useState } from "react";
 
 const navItems = [
   { href: "/", label: "Visão Geral", icon: LayoutDashboard },
   { href: "/trafego", label: "Tráfego", icon: Megaphone },
-  { href: "/atracao", label: "Atração", icon: Sparkles },
   { href: "/leads", label: "Leads", icon: Users },
   { href: "/vendas", label: "Vendas", icon: ShoppingCart },
   { href: "/relatorio", label: "Relatório Diário", icon: CalendarDays },
@@ -20,7 +19,7 @@ function NavLinks({ pathname, onClose }: { pathname: string; onClose?: () => voi
     <nav className="flex-1 px-3 py-4 space-y-0.5">
       {navItems.map((item) => {
         const Icon = item.icon;
-        const active = pathname === item.href;
+        const active = item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(item.href + "/");
         return (
           <Link
             key={item.href}

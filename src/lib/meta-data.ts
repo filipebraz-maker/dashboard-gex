@@ -28,6 +28,54 @@ function parseNumeric(raw: string): number {
   return isNaN(n) ? 0 : n;
 }
 
+export type CategoriaCampanha = "captacao" | "atracao" | "conteudo" | "outros";
+
+export const CATEGORIAS_META: Array<{ slug: CategoriaCampanha; rotulo: string; descricao: string }> = [
+  { slug: "captacao", rotulo: "Captação", descricao: "Campanhas com foco em leads (CONVERSÃO/LEAD)" },
+  { slug: "atracao", rotulo: "Atração", descricao: "Posts impulsionados pra crescer perfil ([CT] [ATRAÇÃO])" },
+  { slug: "conteudo", rotulo: "Conteúdo", descricao: "Distribuição de conteúdo ([CP1] / [ENGAJAMENTO])" },
+  { slug: "outros", rotulo: "Outros", descricao: "Campanhas que não se enquadram nas categorias acima" },
+];
+
+export function classificarCampanha(nome: string): CategoriaCampanha {
+  const n = (nome || "").toUpperCase();
+  // Atração tem precedência: campanhas com [ATRAÇÃO] mesmo se tiverem [CT] vão pra atração
+  if (n.includes("[ATRAÇÃO]") || n.includes("[ATRACAO]")) return "atracao";
+  if (n.includes("CONVERSÃO") || n.includes("CONVERSAO") || n.includes("LEAD")) return "captacao";
+  if (n.includes("[CP1]") || n.includes("[ENGAJAMENTO]")) return "conteudo";
+  return "outros";
+}
+
+export function filtrarPorCategoria(linhas: AnuncioDia[], categoria: CategoriaCampanha | "todos"): AnuncioDia[] {
+  if (categoria === "todos") return linhas;
+  return linhas.filter((l) => classificarCampanha(l.campanha) === categoria);
+}
+
+export function contarPorCategoria(linhas: AnuncioDia[]): Record<CategoriaCampanha, { linhas: number; investimento: number; campanhas: number }> {
+  const out: Record<CategoriaCampanha, { linhas: number; investimento: number; campanhas: number }> = {
+    captacao: { linhas: 0, investimento: 0, campanhas: 0 },
+    atracao: { linhas: 0, investimento: 0, campanhas: 0 },
+    conteudo: { linhas: 0, investimento: 0, campanhas: 0 },
+    outros: { linhas: 0, investimento: 0, campanhas: 0 },
+  };
+  const campanhasPorCat: Record<CategoriaCampanha, Set<string>> = {
+    captacao: new Set(),
+    atracao: new Set(),
+    conteudo: new Set(),
+    outros: new Set(),
+  };
+  for (const l of linhas) {
+    const cat = classificarCampanha(l.campanha);
+    out[cat].linhas++;
+    out[cat].investimento += l.investimento;
+    campanhasPorCat[cat].add(l.campanha);
+  }
+  for (const c of Object.keys(out) as CategoriaCampanha[]) {
+    out[c].campanhas = campanhasPorCat[c].size;
+  }
+  return out;
+}
+
 export async function carregarMetaAds(): Promise<AnuncioDia[]> {
   const rows = await lerAba(spreadsheetId(), ABA, "A:AZ");
   if (rows.length < 2) return [];

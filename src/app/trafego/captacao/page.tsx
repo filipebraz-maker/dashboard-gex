@@ -1,12 +1,12 @@
 import { AlertCircle } from "lucide-react";
 import { SectionCard } from "@/components/SectionCard";
 import { TrafegoCategoriaView } from "@/components/TrafegoCategoriaView";
-import { carregarMetaAds } from "@/lib/meta-data";
+import { carregarMetaAds, filtrarPorCategoria } from "@/lib/meta-data";
 import type { AnuncioDia } from "@/lib/meta-types";
 
 export const dynamic = "force-dynamic";
 
-export default async function TrafegoGeralPage() {
+export default async function TrafegoCaptacaoPage() {
   let linhas: AnuncioDia[] = [];
   let erro: string | null = null;
   try {
@@ -14,7 +14,6 @@ export default async function TrafegoGeralPage() {
   } catch (e) {
     erro = e instanceof Error ? e.message : String(e);
   }
-
   if (erro) {
     return (
       <SectionCard title="Meta Ads indisponível">
@@ -25,6 +24,11 @@ export default async function TrafegoGeralPage() {
       </SectionCard>
     );
   }
-
-  return <TrafegoCategoriaView linhas={linhas} />;
+  const filtradas = filtrarPorCategoria(linhas, "captacao");
+  return (
+    <TrafegoCategoriaView
+      linhas={filtradas}
+      vazioMsg="Nenhuma campanha de Captação encontrada. Critério: nome contém CONVERSÃO ou LEAD."
+    />
+  );
 }

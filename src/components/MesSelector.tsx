@@ -59,17 +59,22 @@ export function MesSelector({ mes, meses }: Props) {
         >
           {opcoes.map((opt) => {
             const ativo = opt === mes || (opt === "TODOS" && mes === "TODOS");
-            // Plain <a> tag forces full browser navigation — bypasses Next router cache.
+            const target = hrefPara(opt);
+            // Botão com onClick + window.location: navegação nativa garantida em qualquer cenário
             return (
-              <a
+              <button
                 key={opt}
-                href={hrefPara(opt)}
-                className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/[0.04] flex items-center justify-between gap-2 mono"
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  window.location.href = target;
+                }}
+                className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/[0.04] flex items-center justify-between gap-2 mono cursor-pointer"
                 style={ativo ? { color: "var(--text)" } : { color: "var(--text-dim)" }}
               >
                 <span>{opt === "TODOS" ? "Todos os meses" : opt}</span>
                 {ativo && <Check className="w-4 h-4" style={{ color: "var(--cyan)" }} />}
-              </a>
+              </button>
             );
           })}
         </div>

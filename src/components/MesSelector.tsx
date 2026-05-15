@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { ChevronDown, Check, Calendar } from "lucide-react";
 import clsx from "clsx";
@@ -16,7 +15,6 @@ function paraUrl(mes: string): string {
 }
 
 export function MesSelector({ mes, meses }: Props) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -61,22 +59,17 @@ export function MesSelector({ mes, meses }: Props) {
         >
           {opcoes.map((opt) => {
             const ativo = opt === mes || (opt === "TODOS" && mes === "TODOS");
+            // Plain <a> tag forces full browser navigation — bypasses Next router cache.
             return (
-              <Link
+              <a
                 key={opt}
                 href={hrefPara(opt)}
-                prefetch={false}
-                onClick={() => {
-                  setOpen(false);
-                  // Garante re-render do RSC mesmo se o router cache "engasgar"
-                  setTimeout(() => router.refresh(), 0);
-                }}
                 className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/[0.04] flex items-center justify-between gap-2 mono"
                 style={ativo ? { color: "var(--text)" } : { color: "var(--text-dim)" }}
               >
                 <span>{opt === "TODOS" ? "Todos os meses" : opt}</span>
                 {ativo && <Check className="w-4 h-4" style={{ color: "var(--cyan)" }} />}
-              </Link>
+              </a>
             );
           })}
         </div>

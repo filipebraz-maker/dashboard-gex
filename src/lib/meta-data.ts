@@ -145,6 +145,30 @@ export function agruparPorAnuncio(linhas: AnuncioDia[]) {
   return Array.from(mapa.values()).sort((a, b) => b.investimento - a.investimento);
 }
 
+export function metaPorDia(linhas: AnuncioDia[]): Array<{
+  data: string;
+  sortKey: string;
+  investimento: number;
+  cliques: number;
+  conversas: number;
+  impressoes: number;
+}> {
+  const mapa = new Map<string, { sortKey: string; investimento: number; cliques: number; conversas: number; impressoes: number }>();
+  for (const l of linhas) {
+    const sortKey = l.dia.toISOString().slice(0, 10);
+    const data = l.dia.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    const atual = mapa.get(data) || { sortKey, investimento: 0, cliques: 0, conversas: 0, impressoes: 0 };
+    atual.investimento += l.investimento;
+    atual.cliques += l.cliques;
+    atual.conversas += l.conversasIniciadas;
+    atual.impressoes += l.impressoes;
+    mapa.set(data, atual);
+  }
+  return Array.from(mapa.entries())
+    .map(([data, d]) => ({ data, ...d }))
+    .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+}
+
 export function agruparPorCampanha(linhas: AnuncioDia[]) {
   const mapa = new Map<string, {
     campanha: string;

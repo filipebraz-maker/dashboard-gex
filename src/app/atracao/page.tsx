@@ -1,5 +1,9 @@
-import { Sparkles, DollarSign, TrendingUp, Users, AlertCircle } from "lucide-react";
+import { Sparkles, DollarSign, TrendingUp, Users, AlertCircle, Calendar } from "lucide-react";
 import { KPICard } from "@/components/KPICard";
+import { SectionCard } from "@/components/SectionCard";
+import { LineChartWrapper } from "@/components/LineChartWrapper";
+import { HeatBar } from "@/components/HeatBar";
+import { Pill } from "@/components/Pill";
 import {
   carregarPostsAtracao,
   carregarCrescimentoGex,
@@ -29,16 +33,13 @@ export default async function AtracaoPage() {
   if (erro) {
     return (
       <div className="px-4 md:px-6 lg:px-8 py-5 md:py-6 max-w-[1200px] mx-auto pb-24">
-        <h1 className="text-xl md:text-2xl font-semibold leading-tight mb-2">Atração</h1>
-        <section className="card p-5 md:p-6">
+        <h1 className="text-xl md:text-2xl font-semibold leading-tight mb-3">Atração</h1>
+        <SectionCard title="Planilha de Atração indisponível">
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "var(--amber)" }} />
-            <div>
-              <div className="text-sm font-semibold">Planilha de Atração indisponível</div>
-              <p className="text-xs mt-1" style={{ color: "var(--text-dim)" }}>{erro}</p>
-            </div>
+            <p className="text-xs" style={{ color: "var(--text-dim)" }}>{erro}</p>
           </div>
-        </section>
+        </SectionCard>
       </div>
     );
   }
@@ -58,123 +59,124 @@ export default async function AtracaoPage() {
     (a, b) => (a.custoPorSeguidor || Infinity) - (b.custoPorSeguidor || Infinity)
   );
 
-  const diasGex = [...gex].sort((a, b) => a.data.getTime() - b.data.getTime());
-  const diasWagner = [...wagner].sort((a, b) => a.data.getTime() - b.data.getTime());
+  // Combina crescimento de Gex e Wagner por dia
+  const mapaCrescimento = new Map<string, { sortKey: string; data: string; gex: number; wagner: number }>();
+  for (const d of gex) {
+    const sortKey = d.data.toISOString().slice(0, 10);
+    const dataStr = d.data.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    const atual = mapaCrescimento.get(dataStr) || { sortKey, data: dataStr, gex: 0, wagner: 0 };
+    atual.gex += d.diferenca;
+    mapaCrescimento.set(dataStr, atual);
+  }
+  for (const d of wagner) {
+    const sortKey = d.data.toISOString().slice(0, 10);
+    const dataStr = d.data.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    const atual = mapaCrescimento.get(dataStr) || { sortKey, data: dataStr, gex: 0, wagner: 0 };
+    atual.wagner += d.diferenca;
+    mapaCrescimento.set(dataStr, atual);
+  }
+  const chartCrescimento = Array.from(mapaCrescimento.values()).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+
+  const maxCps = Math.max(...postsValidos.map((p) => p.custoPorSeguidor), 1);
+  const periodo = gex.length > 0 && wagner.length > 0
+    ? `${gex[0].data.toLocaleDateString("pt-BR")} → ${gex[gex.length - 1].data.toLocaleDateString("pt-BR")}`
+    : "—";
 
   return (
-    <div className="px-4 md:px-6 lg:px-8 py-5 md:py-6 max-w-[1400px] mx-auto pb-24">
-      <header className="reveal mb-6">
-        <h1 className="text-xl md:text-2xl font-semibold leading-tight">Atração</h1>
-        <p className="text-xs md:text-sm mt-1" style={{ color: "var(--text-dim)" }}>
-          Posts impulsionados + crescimento dos perfis Gex e Wagner
-        </p>
+    <div className="px-4 md:px-6 lg:px-8 py-5 md:py-6 max-w-[1600px] mx-auto pb-24">
+      <header className="reveal flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
+        <div>
+          <h1 className="text-xl md:text-2xl font-semibold leading-tight">Atração</h1>
+          <p className="text-xs md:text-sm mt-1" style={{ color: "var(--text-dim)" }}>
+            Posts impulsionados + crescimento dos perfis @Gex e @Wagner
+          </p>
+        </div>
+        <div className="flex items-center gap-2 card px-3 py-2 text-sm">
+          <Calendar className="w-3.5 h-3.5" style={{ color: "var(--text-dim)" }} />
+          <span className="mono">{periodo}</span>
+        </div>
       </header>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
-        <KPICard label="Investimento" value={formatBRL(investimentoTotal)} icon={DollarSign} variant="green" />
-        <KPICard label="Visitas ao perfil" value={formatNumber(visitasTotal)} icon={Sparkles} variant="cyan" />
-        <KPICard label="Seguidores via posts" value={formatNumber(novosSeguidoresPosts)} icon={Users} variant="purple" />
-        <KPICard label="CPS médio" value={formatBRL(cpsMedio)} />
-        <KPICard label="Saldo @Gex / @Wagner"
-          value={`${crescimentoGex >= 0 ? "+" : ""}${formatNumber(crescimentoGex)} / ${crescimentoWagner >= 0 ? "+" : ""}${formatNumber(crescimentoWagner)}`}
-          icon={TrendingUp}
-          variant="orange"
-        />
+      <div className="reveal grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5" style={{ animationDelay: "0.05s" }}>
+        <KPICard icon={DollarSign} label="Investimento" value={formatBRL(investimentoTotal)} delta={`${postsValidos.length} post(s)`} variant="purple" />
+        <KPICard icon={Sparkles} label="Visitas ao Perfil" value={formatNumber(visitasTotal)} variant="cyan" />
+        <KPICard icon={Users} label="Seguidores via Posts" value={`+${formatNumber(novosSeguidoresPosts)}`} delta={cpsMedio > 0 ? `CPS médio ${formatBRL(cpsMedio)}` : undefined} variant="green" />
+        <KPICard icon={TrendingUp} label="Saldo total" value={`${crescimentoGex + crescimentoWagner >= 0 ? "+" : ""}${formatNumber(crescimentoGex + crescimentoWagner)}`} delta={`Gex ${crescimentoGex >= 0 ? "+" : ""}${crescimentoGex} · Wagner ${crescimentoWagner >= 0 ? "+" : ""}${crescimentoWagner}`} deltaColor={crescimentoGex + crescimentoWagner >= 0 ? "var(--green)" : "var(--red)"} />
       </div>
 
-      <section className="card p-5 md:p-6 mb-5">
-        <h2 className="text-sm font-semibold mb-4">Posts impulsionados ({postsValidos.length}) · ordenado por CPS</h2>
-        <div className="overflow-x-auto">
-          <table className="dt">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Data</th>
-                <th>Perfil</th>
-                <th>Formato</th>
-                <th>Status</th>
-                <th className="num">Visitas</th>
-                <th className="num">Seguidores +</th>
-                <th className="num">Tx. conv.</th>
-                <th className="num">Invest.</th>
-                <th className="num">CPS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {postsOrdenados.map((p) => {
-                const novosSeguidores = Math.max(0, p.seguidoresApos - p.seguidoresAntes);
-                return (
-                  <tr key={p.id}>
-                    <td className="mono">{p.id}</td>
-                    <td className="mono">{p.data?.toLocaleDateString("pt-BR") || "—"}</td>
-                    <td>{p.perfil}</td>
-                    <td className="mono" style={{ color: "var(--text-dim)" }}>{p.formato}</td>
-                    <td>
-                      <span className="pill" style={{
-                        background: p.status.toLowerCase().includes("subido") ? "rgba(52, 211, 153, 0.15)" : "rgba(148, 163, 184, 0.15)",
-                        color: p.status.toLowerCase().includes("subido") ? "var(--green)" : "var(--text-dim)",
-                      }}>{p.status || "—"}</span>
-                    </td>
-                    <td className="num">{formatNumber(p.visitaPerfil)}</td>
-                    <td className="num">{formatNumber(novosSeguidores)}</td>
-                    <td className="num" style={{ color: "var(--text-dim)" }}>{p.taxaConversao.toFixed(2)}%</td>
-                    <td className="num">{formatBRL(p.valorGasto)}</td>
-                    <td className="num" style={{ color: p.custoPorSeguidor > 0 && p.custoPorSeguidor <= 3 ? "var(--green)" : "var(--text)" }}>
-                      {p.custoPorSeguidor > 0 ? formatBRL(p.custoPorSeguidor) : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <div className="reveal mb-5" style={{ animationDelay: "0.1s" }}>
+        <SectionCard title="Crescimento Diário dos Perfis" subtitle="Δ seguidores por dia">
+          {chartCrescimento.length > 0 ? (
+            <LineChartWrapper
+              data={chartCrescimento}
+              xKey="data"
+              lines={[
+                { key: "gex", color: "#22D3EE", name: "@Gex" },
+                { key: "wagner", color: "#A78BFA", name: "@Wagner" },
+              ]}
+              format="number"
+              height={300}
+            />
+          ) : (
+            <div className="py-12 text-center text-xs" style={{ color: "var(--text-dim)" }}>Sem dados de crescimento</div>
+          )}
+        </SectionCard>
+      </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <CrescimentoCard titulo="@Gex" linhas={diasGex} />
-        <CrescimentoCard titulo="@Wagner" linhas={diasWagner} />
+      <div className="reveal mb-5" style={{ animationDelay: "0.15s" }}>
+        <SectionCard title="Posts Impulsionados" subtitle={`${postsValidos.length} post(s) · ordenado por CPS (menor primeiro)`}>
+          <div className="overflow-x-auto -mx-4 md:-mx-5">
+            <div className="min-w-[800px] px-4 md:px-5">
+              <table className="dt">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Data</th>
+                    <th>Perfil</th>
+                    <th>Formato</th>
+                    <th>Status</th>
+                    <th className="text-right">Visitas</th>
+                    <th className="text-right">Seg. +</th>
+                    <th className="text-right">Invest.</th>
+                    <th className="text-right">CPS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {postsOrdenados.map((p) => {
+                    const novosSeguidores = Math.max(0, p.seguidoresApos - p.seguidoresAntes);
+                    return (
+                      <tr key={p.id}>
+                        <td><span className="mono" style={{ color: "var(--text-muted)" }}>{p.id}</span></td>
+                        <td className="mono">{p.data?.toLocaleDateString("pt-BR") || "—"}</td>
+                        <td>{p.perfil}</td>
+                        <td className="mono" style={{ color: "var(--text-dim)" }}>{p.formato}</td>
+                        <td>
+                          <Pill tone={p.status.toLowerCase().includes("subido") ? "green" : p.status.toLowerCase().includes("pausado") ? "neutral" : "cyan"}>
+                            {p.status || "—"}
+                          </Pill>
+                        </td>
+                        <td className="num">{formatNumber(p.visitaPerfil)}</td>
+                        <td className="num" style={{ color: "var(--cyan)" }}>{formatNumber(novosSeguidores)}</td>
+                        <td className="num">{formatBRL(p.valorGasto)}</td>
+                        <td className="num">
+                          <div className="flex items-center justify-end gap-2">
+                            <span style={{ color: p.custoPorSeguidor > 0 && p.custoPorSeguidor <= 2 ? "var(--green)" : p.custoPorSeguidor <= 3 ? "var(--amber)" : "var(--text)" }}>
+                              {p.custoPorSeguidor > 0 ? formatBRL(p.custoPorSeguidor) : "—"}
+                            </span>
+                          </div>
+                          {p.custoPorSeguidor > 0 && (
+                            <HeatBar value={(p.custoPorSeguidor / maxCps) * 100} color={p.custoPorSeguidor <= 2 ? "green" : p.custoPorSeguidor <= 3 ? "amber" : "orange"} className="mt-1" />
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </SectionCard>
       </div>
     </div>
-  );
-}
-
-interface CrescimentoCardProps {
-  titulo: string;
-  linhas: Array<{ data: Date; inicio: number; fim: number; diferenca: number }>;
-}
-
-function CrescimentoCard({ titulo, linhas }: CrescimentoCardProps) {
-  const total = linhas.reduce((s, l) => s + l.diferenca, 0);
-  return (
-    <section className="card p-5 md:p-6">
-      <div className="flex items-baseline justify-between mb-4">
-        <h2 className="text-sm font-semibold">{titulo}</h2>
-        <span className="mono text-sm" style={{ color: total >= 0 ? "var(--green)" : "var(--red)" }}>
-          {total >= 0 ? "+" : ""}{formatNumber(total)} no período
-        </span>
-      </div>
-      <table className="dt">
-        <thead>
-          <tr>
-            <th>Data</th>
-            <th className="num">Início</th>
-            <th className="num">Fim</th>
-            <th className="num">Δ</th>
-          </tr>
-        </thead>
-        <tbody>
-          {linhas.map((l) => (
-            <tr key={l.data.toISOString()}>
-              <td className="mono">{l.data.toLocaleDateString("pt-BR")}</td>
-              <td className="num" style={{ color: "var(--text-dim)" }}>{formatNumber(l.inicio)}</td>
-              <td className="num" style={{ color: "var(--text-dim)" }}>{formatNumber(l.fim)}</td>
-              <td className="num" style={{ color: l.diferenca >= 0 ? "var(--green)" : "var(--red)" }}>
-                {l.diferenca >= 0 ? "+" : ""}{l.diferenca}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
   );
 }

@@ -89,6 +89,66 @@ export function filtrarLeadsPorMes(leads: LeadDiario[], mes: string | null): Lea
   return leads.filter((l) => l.data.getMonth() === mesNum && l.data.getFullYear() === 2026);
 }
 
+export function vendasPorDia(vendas: Venda[]): Array<{ data: string; sortKey: string; faturamento: number; qtd: number }> {
+  const mapa = new Map<string, { sortKey: string; faturamento: number; qtd: number }>();
+  for (const v of vendas) {
+    if (v.cancelada) continue;
+    const sortKey = v.dataVenda.toISOString().slice(0, 10);
+    const data = v.dataVenda.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    const atual = mapa.get(data) || { sortKey, faturamento: 0, qtd: 0 };
+    atual.faturamento += v.valor;
+    atual.qtd++;
+    mapa.set(data, atual);
+  }
+  return Array.from(mapa.entries())
+    .map(([data, d]) => ({ data, ...d }))
+    .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+}
+
+export function leadsPorDia(leads: LeadDiario[]): Array<{ data: string; sortKey: string; leads: number; vendas: number }> {
+  return leads
+    .filter((l) => l.totalLeads > 0 || l.vendasContagem > 0)
+    .map((l) => ({
+      sortKey: l.data.toISOString().slice(0, 10),
+      data: l.data.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+      leads: l.totalLeads,
+      vendas: l.vendasContagem,
+    }))
+    .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+}
+
+export function faturamentoPorMes(vendas: Venda[]): Array<{ mes: string; faturamento: number; qtd: number }> {
+  const ordem = MESES_VENDAS.map((m) => m.rotulo);
+  const mapa = new Map<string, { faturamento: number; qtd: number }>();
+  for (const r of ordem) mapa.set(r, { faturamento: 0, qtd: 0 });
+  for (const v of vendas) {
+    if (v.cancelada) continue;
+    const atual = mapa.get(v.mes);
+    if (!atual) continue;
+    atual.faturamento += v.valor;
+    atual.qtd++;
+  }
+  return ordem.map((mes) => ({ mes, ...(mapa.get(mes) || { faturamento: 0, qtd: 0 }) }));
+}
+
+export function origemLeadsAgregado(leads: LeadDiario[]): Array<{ origem: string; leads: number; percentual: number }> {
+  const mapa: Record<string, number> = {};
+  let total = 0;
+  for (const l of leads) {
+    for (const [o, n] of Object.entries(l.porOrigem)) {
+      mapa[o] = (mapa[o] || 0) + n;
+      total += n;
+    }
+  }
+  return Object.entries(mapa)
+    .map(([origem, leads]) => ({
+      origem,
+      leads,
+      percentual: total > 0 ? (leads / total) * 100 : 0,
+    }))
+    .sort((a, b) => b.leads - a.leads);
+}
+
 export function agruparPorChave<K extends string>(
   vendas: Venda[],
   chave: (v: Venda) => K | null

@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FileSpreadsheet, Users, ShoppingCart, Menu, X, Zap } from "lucide-react";
+import { LayoutDashboard, FileSpreadsheet, Users, ShoppingCart, Megaphone, Sparkles, Menu, X, Zap } from "lucide-react";
 import clsx from "clsx";
 import { useState } from "react";
 
 const navItems = [
   { href: "/", label: "Visão Geral", icon: LayoutDashboard },
+  { href: "/trafego", label: "Tráfego", icon: Megaphone },
+  { href: "/atracao", label: "Atração", icon: Sparkles },
   { href: "/leads", label: "Leads", icon: Users },
   { href: "/vendas", label: "Vendas", icon: ShoppingCart },
   { href: "/sheet", label: "Planilha", icon: FileSpreadsheet },

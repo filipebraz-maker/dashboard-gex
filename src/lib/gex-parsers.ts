@@ -33,6 +33,15 @@ export function parseInt2(raw: string): number {
   return isNaN(n) ? 0 : n;
 }
 
+export function parseIntSigned(raw: string): number {
+  if (!raw) return 0;
+  const s = raw.trim();
+  const neg = s.startsWith("-");
+  const n = parseInt(s.replace(/[^\d]/g, ""), 10);
+  if (isNaN(n)) return 0;
+  return neg ? -n : n;
+}
+
 export function parseData(raw: string): Date | null {
   if (!raw) return null;
   const m = raw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, JetBrains_Mono } from "next/font/google";
+import { Suspense } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import "./globals.css";
 
@@ -30,7 +31,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR" className={`${sans.variable} ${mono.variable} h-full antialiased`}>
       <body className="min-h-full">
         <div className="flex h-screen">
-          <Sidebar />
+          <Suspense fallback={null}>
+            <Sidebar />
+          </Suspense>
           <main className="flex-1 overflow-y-auto pt-14 md:pt-0">{children}</main>
         </div>
       </body>

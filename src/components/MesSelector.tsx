@@ -1,8 +1,8 @@
 "use client";
 
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useState, useTransition, useRef, useEffect } from "react";
-import { Calendar, ChevronDown, Loader2 } from "lucide-react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useState, useRef, useEffect } from "react";
+import { Calendar, ChevronDown } from "lucide-react";
 import clsx from "clsx";
 
 interface Option {
@@ -21,10 +21,8 @@ function toISO(d: Date): string {
 }
 
 export function MesSelector({ options, currentKey, currentLabel }: Props) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [customMode, setCustomMode] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -51,51 +49,28 @@ export function MesSelector({ options, currentKey, currentLabel }: Props) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  function navegar(qs: string) {
-    setOpen(false);
-    setCustomMode(false);
-    const url = qs ? `${pathname}?${qs}` : pathname;
-    // Navegação nativa garantida + startTransition pro caso do Next conseguir suave
-    startTransition(() => {
-      router.push(url);
-      // Garante re-fetch do server component
-      window.setTimeout(() => router.refresh(), 0);
-    });
-  }
-
-  function selectPreset(key: string) {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("de");
-    params.delete("ate");
-    if (key === "todos") params.delete("mes");
-    else params.set("mes", key);
-    navegar(params.toString());
-  }
-
-  function aplicarCustom() {
-    if (!de || !ate || de > ate) return;
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("mes", "custom");
-    params.set("de", de);
-    params.set("ate", ate);
-    navegar(params.toString());
-  }
-
   const currentOption = options.find((o) => o.key === currentKey);
   const displayLabel = currentLabel || currentOption?.label || "Selecionar período";
+
+  // Constrói href absoluto pra cada opção (preserva outros params que não sejam mes/de/ate)
+  function hrefPara(key: string): string {
+    const params = new URLSearchParams();
+    searchParams.forEach((v, k) => {
+      if (k !== "mes" && k !== "de" && k !== "ate") params.set(k, v);
+    });
+    if (key !== "todos") params.set("mes", key);
+    const q = params.toString();
+    return q ? `${pathname}?${q}` : pathname;
+  }
 
   return (
     <div ref={ref} className="relative">
       <button
+        type="button"
         onClick={() => setOpen(!open)}
-        className={clsx("flex items-center gap-2 card px-3 py-2 text-sm font-medium transition-colors", isPending && "opacity-50")}
-        disabled={isPending}
+        className="flex items-center gap-2 card px-3 py-2 text-sm font-medium transition-colors"
       >
-        {isPending ? (
-          <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--text-dim)" }} />
-        ) : (
-          <Calendar className="w-4 h-4" style={{ color: "var(--text-dim)" }} />
-        )}
+        <Calendar className="w-4 h-4" style={{ color: "var(--text-dim)" }} />
         <span>{displayLabel}</span>
         <ChevronDown className={clsx("w-4 h-4 transition-transform", open && "rotate-180")} style={{ color: "var(--text-dim)" }} />
       </button>
@@ -107,12 +82,12 @@ export function MesSelector({ options, currentKey, currentLabel }: Props) {
         >
           {options.map((opt) => {
             const selected = opt.key === currentKey;
+            // Plain <a> tag → full browser navigation, sem cache do Next
             return (
-              <button
+              <a
                 key={opt.key}
-                type="button"
-                onClick={() => selectPreset(opt.key)}
-                className="w-full text-left px-3 py-2 text-sm transition-colors"
+                href={hrefPara(opt.key)}
+                className="block w-full text-left px-3 py-2 text-sm transition-colors no-underline"
                 style={
                   selected
                     ? {
@@ -124,7 +99,7 @@ export function MesSelector({ options, currentKey, currentLabel }: Props) {
                 }
               >
                 {opt.label}
-              </button>
+              </a>
             );
           })}
 
@@ -149,11 +124,18 @@ export function MesSelector({ options, currentKey, currentLabel }: Props) {
           </button>
 
           {customMode && (
-            <div className="px-3 py-3 space-y-2.5" style={{ background: "var(--bg-elev)", borderTop: "1px solid var(--border)" }}>
+            <form
+              method="get"
+              action={pathname}
+              className="px-3 py-3 space-y-2.5"
+              style={{ background: "var(--bg-elev)", borderTop: "1px solid var(--border)" }}
+            >
+              <input type="hidden" name="mes" value="custom" />
               <div>
                 <label className="text-[10px] uppercase tracking-wider block mb-1" style={{ color: "var(--text-dim)" }}>De</label>
                 <input
                   type="date"
+                  name="de"
                   value={de}
                   max={ate}
                   onChange={(e) => setDe(e.target.value)}
@@ -165,6 +147,7 @@ export function MesSelector({ options, currentKey, currentLabel }: Props) {
                 <label className="text-[10px] uppercase tracking-wider block mb-1" style={{ color: "var(--text-dim)" }}>Até</label>
                 <input
                   type="date"
+                  name="ate"
                   value={ate}
                   min={de}
                   onChange={(e) => setAte(e.target.value)}
@@ -173,15 +156,14 @@ export function MesSelector({ options, currentKey, currentLabel }: Props) {
                 />
               </div>
               <button
-                type="button"
-                onClick={aplicarCustom}
+                type="submit"
                 disabled={!de || !ate || de > ate}
                 className="w-full px-3 py-2 text-sm font-medium rounded transition-opacity disabled:opacity-40"
                 style={{ background: "linear-gradient(135deg, var(--purple), var(--cyan))", color: "white" }}
               >
                 Aplicar
               </button>
-            </div>
+            </form>
           )}
         </div>
       )}

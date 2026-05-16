@@ -3,35 +3,24 @@ import { KPICard } from "@/components/KPICard";
 import { SectionCard } from "@/components/SectionCard";
 import { BarChartWrapper } from "@/components/BarChartWrapper";
 import { HeatBar } from "@/components/HeatBar";
-import { MesSelector } from "@/components/MesSelector";
 import { VendasTable, type VendaRow } from "@/components/VendasTable";
 import {
   carregarVendas,
   agruparPorChave,
   faturamentoPorMes,
-  getPeriodoFromQuery,
-  filtrarVendasPorRange,
-  PERIODO_OPTIONS,
 } from "@/lib/gex-data";
 import { formatBRL, formatNumber, formatPercent } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-interface PageProps {
-  searchParams: Promise<{ mes?: string; de?: string; ate?: string }>;
-}
-
 function normalizarAluno(s: string): string {
   return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
 }
 
-export default async function VendasPage({ searchParams }: PageProps) {
-  const { mes, de, ate } = await searchParams;
-  const periodo = getPeriodoFromQuery(mes, de, ate);
-
+export default async function VendasPage() {
   const vendas = await carregarVendas();
 
-  // Conta compras por aluno em todo o histórico (não só no período filtrado)
+  // Conta compras por aluno
   const comprasPorAluno = new Map<string, number>();
   for (const v of vendas) {
     if (v.cancelada) continue;
@@ -39,7 +28,7 @@ export default async function VendasPage({ searchParams }: PageProps) {
     comprasPorAluno.set(k, (comprasPorAluno.get(k) || 0) + 1);
   }
 
-  const vendasMes = filtrarVendasPorRange(vendas, periodo);
+  const vendasMes = vendas;
   const ativas = vendasMes.filter((v) => !v.cancelada);
   const canceladas = vendasMes.filter((v) => v.cancelada);
   const faturamentoLiquido = ativas.reduce((s, v) => s + v.valor, 0);
@@ -80,14 +69,11 @@ export default async function VendasPage({ searchParams }: PageProps) {
 
   return (
     <div className="px-4 md:px-6 lg:px-8 py-5 md:py-6 max-w-[1600px] mx-auto pb-24">
-      <header className="reveal flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
-        <div>
-          <h1 className="text-xl md:text-2xl font-semibold leading-tight">Vendas</h1>
-          <p className="text-xs md:text-sm mt-1" style={{ color: "var(--text-dim)" }}>
-            {periodo.label} · {ativas.length} venda(s) líquida(s)
-          </p>
-        </div>
-        <MesSelector options={PERIODO_OPTIONS} currentKey={periodo.key} currentLabel={periodo.label} />
+      <header className="reveal mb-5">
+        <h1 className="text-xl md:text-2xl font-semibold leading-tight">Vendas</h1>
+        <p className="text-xs md:text-sm mt-1" style={{ color: "var(--text-dim)" }}>
+          Todos os meses · 2026 · {ativas.length} venda(s) líquida(s) · use a busca / ordenação da tabela
+        </p>
       </header>
 
       <div className="reveal grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5" style={{ animationDelay: "0.05s" }}>
@@ -97,19 +83,17 @@ export default async function VendasPage({ searchParams }: PageProps) {
         <KPICard icon={TrendingDown} label="Cancelamentos" value={formatBRL(valorCancelado)} delta={`${canceladas.length} venda(s)`} deltaColor="var(--red)" variant="orange" />
       </div>
 
-      {periodo.key === "todos" && (
-        <div className="reveal mb-5" style={{ animationDelay: "0.1s" }}>
-          <SectionCard title="Faturamento por Mês" subtitle="Evolução do faturamento líquido (2026)">
-            <BarChartWrapper
-              data={chartMeses}
-              xKey="mes"
-              bars={[{ key: "faturamento", color: "#A78BFA", name: "Faturamento" }]}
-              format="currency"
-              height={260}
-            />
-          </SectionCard>
-        </div>
-      )}
+      <div className="reveal mb-5" style={{ animationDelay: "0.1s" }}>
+        <SectionCard title="Faturamento por Mês" subtitle="Evolução do faturamento líquido (2026)">
+          <BarChartWrapper
+            data={chartMeses}
+            xKey="mes"
+            bars={[{ key: "faturamento", color: "#A78BFA", name: "Faturamento" }]}
+            format="currency"
+            height={260}
+          />
+        </SectionCard>
+      </div>
 
       <div className="reveal grid grid-cols-1 lg:grid-cols-2 gap-3 mb-5" style={{ animationDelay: "0.15s" }}>
         <BlocoAgregacao titulo="Por Área" linhas={porArea} cor="cyan" />
